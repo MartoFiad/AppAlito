@@ -33,7 +33,6 @@ function PaginaDetalleVehiculo() {
       navigate('/')
     } else {
       setVehiculo(v)
-      // Inicializamos los campos de edición con los valores actuales
       setNombreEdit(v.nombre)
       setModeloEdit(v.modelo)
       setAnioEdit(v.anio)
@@ -50,7 +49,7 @@ function PaginaDetalleVehiculo() {
     ? Math.max(...vehiculo.historial.map(h => Number(h.km)))
     : 0
 
-  // 📝 FUNCIÓN PARA GUARDAR LOS CAMBIOS DEL VEHÍCULO
+  // 📝 1. SOLUCIÓN CORREGIDA PARA GUARDAR VEHÍCULO (Parseo de ID)
   function manejarGuardarEdicionVehiculo(e) {
     e.preventDefault()
     if (!nombreEdit || !modeloEdit || !anioEdit || !patenteEdit) {
@@ -63,7 +62,6 @@ function PaginaDetalleVehiculo() {
       return
     }
 
-    // Actualizamos el objeto manteniendo el historial y la foto intactos
     const vehiculoEditado = {
       ...vehiculo,
       nombre: nombreEdit,
@@ -73,15 +71,15 @@ function PaginaDetalleVehiculo() {
       distribucion: vehiculo.tipo === 'moto' ? 'cadena_moto' : distribucionEdit
     }
 
-    // Buscamos la lista del localStorage para impactar el cambio
     const todos = JSON.parse(localStorage.getItem('vehiculos')) || []
-    const index = todos.findIndex(v => v.id === vehiculo.id)
+    // 🛠️ FIX: Comparamos convirtiendo ambos IDs a String para evitar fallos de tipo
+    const index = todos.findIndex(v => String(v.id) === String(vehiculo.id))
     
     if (index !== -1) {
       todos[index] = vehiculoEditado
       localStorage.setItem('vehiculos', JSON.stringify(todos))
       setVehiculo(vehiculoEditado)
-      setEditando(false) // Cerramos el formulario de edición
+      setEditando(false)
 
       Swal.fire({
         icon: 'success',
@@ -166,35 +164,62 @@ function PaginaDetalleVehiculo() {
     })
   }
 
-  function manejarEditarMantenimiento(mttoId, tipoActual) {
+  // 📝 2. SOLUCIÓN CORREGIDA PARA MODIFICAR KM (Doble input en SweetAlert)
+  function manejarEditarMantenimiento(mttoId, tipoActual, kmActual) {
     Swal.fire({
-      title: 'Modificar mantenimiento',
-      input: 'text',
-      inputLabel: 'Descripción de la intervención técnica:',
-      inputValue: tipoActual,
+      title: 'Modificar registro de service',
+      html: `
+        <div class="text-start">
+          <label class="form-label small fw-bold text-secondary">Descripción del trabajo:</label>
+          <input id="swal-input-tipo" class="form-control mb-3" value="${tipoActual}">
+          <label class="form-label small fw-bold text-secondary">Kilometraje (km):</label>
+          <input id="swal-input-km" type="number" class="form-control" value="${kmActual}">
+        </div>
+      `,
       showCancelButton: true,
       confirmButtonColor: '#212529',
       cancelButtonColor: '#6c757d',
       confirmButtonText: 'Guardar cambios',
       cancelButtonText: 'Cancelar',
-      inputValidator: (value) => {
-        if (!value || !value.trim()) {
-          return '¡La descripción no puede estar vacía!'
+      focusConfirm: false,
+      preConfirm: () => {
+        const tipo = document.getElementById('swal-input-tipo').value
+        const km = document.getElementById('swal-input-km').value
+        
+        if (!tipo || !tipo.trim()) {
+          Swal.showValidationMessage('La descripción no puede estar vacía')
+          return false
         }
+        if (!km || Number(km) < 0) {
+          Swal.showValidationMessage('El kilometraje debe ser un número válido')
+          return false
+        }
+        return { tipo: tipo.trim(), km: Number(km) }
       }
     }).then((result) => {
       if (result.isConfirmed && result.value) {
-        const vehiculoActualizado = vehiculosService.editarMantenimiento(vehiculo.id, mttoId, result.value)
-        if (vehiculoActualizado) {
-          setVehiculo(vehiculoActualizado)
-          Swal.fire({
-            icon: 'success',
-            title: 'Registro actualizado',
-            showConfirmButton: false,
-            timer: 1500,
-            toast: true,
-            position: 'top-end'
-          })
+        // Buscamos y actualizamos directamente en la estructura de datos del servicio
+        const todos = JSON.parse(localStorage.getItem('vehiculos')) || []
+        const vIndex = todos.findIndex(v => String(v.id) === String(vehiculo.id))
+        
+        if (vIndex !== -1) {
+          const hIndex = todos[vIndex].historial.findIndex(h => String(h.id) === String(mttoId))
+          if (hIndex !== -1) {
+            todos[vIndex].historial[hIndex].tipo = result.value.tipo
+            todos[vIndex].historial[hIndex].km = result.value.km
+            
+            localStorage.setItem('vehiculos', JSON.stringify(todos))
+            setVehiculo(todos[vIndex]) // Sincronizamos el estado de la pantalla
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Registro actualizado',
+              showConfirmButton: false,
+              timer: 1500,
+              toast: true,
+              position: 'top-end'
+            })
+          }
         }
       }
     })
@@ -207,10 +232,9 @@ function PaginaDetalleVehiculo() {
       </Link>
 
       <div className="row g-4">
-        {/* COLUMNA IZQUIERDA: Tarjeta Técnica y Alertas */}
+        {/* COLUMNA IZQUIERDA */}
         <div className="col-12 col-lg-5">
           <article className="card shadow-sm border-0 bg-white mb-4 position-relative">
-            {/* 🛠️ BOTÓN PARA EDITAR VEHÍCULO */}
             <button 
               className="btn btn-sm btn-warning position-absolute top-0 end-0 m-3 fw-bold shadow-sm"
               onClick={() => setEditando(!editando)}
@@ -229,7 +253,6 @@ function PaginaDetalleVehiculo() {
             )}
 
             <div className="card-body p-4">
-              {/* VISTA FORMULARIO DE EDICIÓN */}
               {editando ? (
                 <form onSubmit={manejarGuardarEdicionVehiculo} className="bg-light p-3 rounded border">
                   <h5 className="h6 fw-bold mb-3 text-dark font-monospace">Modificar Ficha Técnica</h5>
@@ -265,7 +288,6 @@ function PaginaDetalleVehiculo() {
                   </button>
                 </form>
               ) : (
-                /* VISTA NORMAL DE LA TARJETA */
                 <>
                   <span className="badge text-bg-warning text-uppercase font-monospace mb-2">{vehiculo.patente}</span>
                   <h2 className="h3 card-title text-dark mb-1">{vehiculo.nombre}</h2>
@@ -307,7 +329,7 @@ function PaginaDetalleVehiculo() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: Carga de Services e Historial */}
+        {/* COLUMNA DERECHA */}
         <div className="col-12 col-lg-7">
           <div className="card p-4 shadow-sm border-0 bg-white mb-4">
             <h4 className="h5 mb-3 text-dark fw-bold">
@@ -352,7 +374,6 @@ function PaginaDetalleVehiculo() {
           </div>
 
           <div className="card p-4 shadow-sm border-0 bg-white">
-            {/* 🛠️ CAMBIO DE TEXTO: De "Historial Clínico" a "Historial de Services" */}
             <h4 className="h5 mb-3 text-dark fw-bold d-flex justify-content-between align-items-center">
               <span><i className="bi bi-journal-text text-warning me-2"></i>Historial de Services</span>
               <span className="badge bg-secondary-subtle text-secondary fs-6">{vehiculo.historial.length} ítems</span>
@@ -374,9 +395,10 @@ function PaginaDetalleVehiculo() {
                       </span>
                     </div>
                     <div className="d-flex gap-1">
+                      {/* 🛠️ LLAMADA ACTUALIZADA: Le pasamos también el kilometraje actual al botón de editar */}
                       <button 
                         className="btn btn-sm btn-outline-secondary border-0" 
-                        onClick={() => manejarEditarMantenimiento(h.id, h.tipo)}
+                        onClick={() => manejarEditarMantenimiento(h.id, h.tipo, h.km)}
                       >
                         <i className="bi bi-pencil-square"></i>
                       </button>
