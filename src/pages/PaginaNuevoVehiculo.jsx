@@ -20,7 +20,7 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
       distribucion: 'correa',
       patente: '',
       anio: '',
-      kmInicial: '', // Nuevo campo en el estado inicial
+      kmInicial: '', 
       formato2016: 'vieja',
       foto: ''
     }
@@ -63,8 +63,7 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
       datos.distribucion = 'cadena_moto'
     }
 
-    // 🛠️ CREACIÓN DEL REGISTRO INICIAL:
-    // Estructuramos el vehículo para que nazca con su kilometraje actual en el historial
+    // 🛠️ ACÁ ESTÁ EL ARREGLO: El auto ya nace con los kilómetros reales en su historial
     const nuevoVehiculo = {
       nombre: datos.nombre,
       modelo: datos.modelo,
@@ -75,10 +74,10 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
       foto: datos.foto,
       historial: [
         {
-          id: Date.now().toString(),
+          id: `${Date.now()}-init`, 
           tipo: "Kilometraje Inicial Registrado",
-          fecha: new Date().toISOString().split('T')[0], // Fecha de hoy en formato AAAA-MM-DD
-          km: Number(datos.kmInicial)
+          fecha: new Date().toISOString().split('T')[0], 
+          km: Number(datos.kmInicial) 
         }
       ]
     }
@@ -155,7 +154,7 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
           </div>
         </div>
 
-        {/* 🚗 NUEVO CAMPO: Kilometraje Inicial */}
+        {/* Campo Kilometraje */}
         <div className="mb-3">
           <label className="form-label fw-bold small text-secondary">Kilometraje Actual (km)</label>
           <input
