@@ -13,6 +13,14 @@ function PaginaDetalleVehiculo() {
   const [fechaMtto, setFechaMtto] = useState('')
   const [kmMtto, setKmMtto] = useState('')
 
+  // Estados para el Modal de Edición del Vehículo
+  const [editando, setEditando] = useState(false)
+  const [nombreEdit, setNombreEdit] = useState('')
+  const [modeloEdit, setModeloEdit] = useState('')
+  const [anioEdit, setAnioEdit] = useState('')
+  const [patenteEdit, setPatenteEdit] = useState('')
+  const [distribucionEdit, setDistribucionEdit] = useState('')
+
   useEffect(() => {
     const v = vehiculosService.obtenerPorId(id)
     if (!v) {
@@ -25,6 +33,12 @@ function PaginaDetalleVehiculo() {
       navigate('/')
     } else {
       setVehiculo(v)
+      // Inicializamos los campos de edición con los valores actuales
+      setNombreEdit(v.nombre)
+      setModeloEdit(v.modelo)
+      setAnioEdit(v.anio)
+      setPatenteEdit(v.patente)
+      setDistribucionEdit(v.distribucion || 'correa')
     }
   }, [id, navigate])
 
@@ -32,11 +46,54 @@ function PaginaDetalleVehiculo() {
 
   const alertasActivas = calcularAlertasVehiculo(vehiculo.historial, vehiculo)
   
-  // 📈 OBTENER KM ACTUAL DESDE EL HISTORIAL:
-  // Busca el número más alto registrado para mostrarlo en la tarjeta técnica
   const kmActualTotal = vehiculo.historial.length > 0 
     ? Math.max(...vehiculo.historial.map(h => Number(h.km)))
     : 0
+
+  // 📝 FUNCIÓN PARA GUARDAR LOS CAMBIOS DEL VEHÍCULO
+  function manejarGuardarEdicionVehiculo(e) {
+    e.preventDefault()
+    if (!nombreEdit || !modeloEdit || !anioEdit || !patenteEdit) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos incompletos',
+        text: 'Por favor, rellene los datos principales del vehículo.',
+        confirmButtonColor: '#212529'
+      })
+      return
+    }
+
+    // Actualizamos el objeto manteniendo el historial y la foto intactos
+    const vehiculoEditado = {
+      ...vehiculo,
+      nombre: nombreEdit,
+      modelo: modeloEdit,
+      anio: anioEdit,
+      patente: patenteEdit.toUpperCase().replace(/\s+/g, ''),
+      distribucion: vehiculo.tipo === 'moto' ? 'cadena_moto' : distribucionEdit
+    }
+
+    // Buscamos la lista del localStorage para impactar el cambio
+    const todos = JSON.parse(localStorage.getItem('vehiculos')) || []
+    const index = todos.findIndex(v => v.id === vehiculo.id)
+    
+    if (index !== -1) {
+      todos[index] = vehiculoEditado
+      localStorage.setItem('vehiculos', JSON.stringify(todos))
+      setVehiculo(vehiculoEditado)
+      setEditando(false) // Cerramos el formulario de edición
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Datos actualizados',
+        text: 'La ficha del vehículo se modificó correctamente.',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2000
+      })
+    }
+  }
 
   function manejarAgregarMantenimiento(e) {
     e.preventDefault()
@@ -150,8 +207,19 @@ function PaginaDetalleVehiculo() {
       </Link>
 
       <div className="row g-4">
+        {/* COLUMNA IZQUIERDA: Tarjeta Técnica y Alertas */}
         <div className="col-12 col-lg-5">
-          <article className="card shadow-sm border-0 bg-white mb-4">
+          <article className="card shadow-sm border-0 bg-white mb-4 position-relative">
+            {/* 🛠️ BOTÓN PARA EDITAR VEHÍCULO */}
+            <button 
+              className="btn btn-sm btn-warning position-absolute top-0 end-0 m-3 fw-bold shadow-sm"
+              onClick={() => setEditando(!editando)}
+              style={{ zIndex: 10, borderRadius: '20px' }}
+            >
+              <i className={`bi ${editando ? 'bi-x-circle' : 'bi-pencil-square'} me-1`}></i>
+              {editando ? 'Cancelar' : 'Editar Ficha'}
+            </button>
+
             {vehiculo.foto ? (
               <img src={vehiculo.foto} className="card-img-top" alt={vehiculo.nombre} style={{ height: '220px', objectFit: 'cover' }} />
             ) : (
@@ -159,22 +227,63 @@ function PaginaDetalleVehiculo() {
                 <i className={`bi ${vehiculo.tipo === 'moto' ? 'bi-bicycle' : 'bi-car-front'} display-3 text-warning`}></i>
               </div>
             )}
+
             <div className="card-body p-4">
-              <span className="badge text-bg-warning text-uppercase font-monospace mb-2">{vehiculo.patente}</span>
-              <h2 className="h3 card-title text-dark mb-1">{vehiculo.nombre}</h2>
-              <p className="text-muted mb-3">{vehiculo.modelo} &bull; Modelo {vehiculo.anio}</p>
-              
-              <div className="d-flex flex-column gap-2 small font-monospace">
-                <div className="p-2 bg-light rounded border text-uppercase">
-                  <strong>Kilometraje:</strong> {kmActualTotal.toLocaleString()} km
-                </div>
-                <div className="p-2 bg-light rounded border text-uppercase">
-                  <strong>Tipo:</strong> {vehiculo.tipo}
-                </div>
-                <div className="p-2 bg-light rounded border text-uppercase">
-                  <strong>Distribución:</strong> {vehiculo.tipo === 'moto' ? 'Kit Arrastre (Cadena)' : vehiculo.distribucion || 'correa'}
-                </div>
-              </div>
+              {/* VISTA FORMULARIO DE EDICIÓN */}
+              {editando ? (
+                <form onSubmit={manejarGuardarEdicionVehiculo} className="bg-light p-3 rounded border">
+                  <h5 className="h6 fw-bold mb-3 text-dark font-monospace">Modificar Ficha Técnica</h5>
+                  <div className="mb-2">
+                    <label className="form-label small fw-bold text-secondary mb-1">Nombre / Alias</label>
+                    <input type="text" className="form-control form-control-sm" value={nombreEdit} onChange={e => setNombreEdit(e.target.value)} />
+                  </div>
+                  <div className="mb-2">
+                    <label className="form-label small fw-bold text-secondary mb-1">Marca y Modelo</label>
+                    <input type="text" className="form-control form-control-sm" value={modeloEdit} onChange={e => setModeloEdit(e.target.value)} />
+                  </div>
+                  <div className="row g-2 mb-2">
+                    <div className="col-6">
+                      <label className="form-label small fw-bold text-secondary mb-1">Año</label>
+                      <input type="number" className="form-control form-control-sm" value={anioEdit} onChange={e => setAnioEdit(e.target.value)} />
+                    </div>
+                    <div className="col-6">
+                      <label className="form-label small fw-bold text-secondary mb-1">Patente</label>
+                      <input type="text" className="form-control form-control-sm text-uppercase font-monospace" value={patenteEdit} onChange={e => setPatenteEdit(e.target.value)} />
+                    </div>
+                  </div>
+                  {vehiculo.tipo !== 'moto' && (
+                    <div className="mb-3">
+                      <label className="form-label small fw-bold text-secondary mb-1">Distribución</label>
+                      <select className="form-select form-select-sm" value={distribucionEdit} onChange={e => setDistribucionEdit(e.target.value)}>
+                        <option value="correa">Correa de Distribución</option>
+                        <option value="cadena">Motor Cadenero</option>
+                      </select>
+                    </div>
+                  )}
+                  <button type="submit" className="btn btn-sm btn-success w-100 fw-bold font-monospace">
+                    <i className="bi bi-check-circle me-1"></i> Guardar Cambios
+                  </button>
+                </form>
+              ) : (
+                /* VISTA NORMAL DE LA TARJETA */
+                <>
+                  <span className="badge text-bg-warning text-uppercase font-monospace mb-2">{vehiculo.patente}</span>
+                  <h2 className="h3 card-title text-dark mb-1">{vehiculo.nombre}</h2>
+                  <p className="text-muted mb-3">{vehiculo.modelo} &bull; Modelo {vehiculo.anio}</p>
+                  
+                  <div className="d-flex flex-column gap-2 small font-monospace">
+                    <div className="p-2 bg-light rounded border text-uppercase">
+                      <strong>Kilometraje:</strong> {kmActualTotal.toLocaleString()} km
+                    </div>
+                    <div className="p-2 bg-light rounded border text-uppercase">
+                      <strong>Tipo:</strong> {vehiculo.tipo}
+                    </div>
+                    <div className="p-2 bg-light rounded border text-uppercase">
+                      <strong>Distribución:</strong> {vehiculo.tipo === 'moto' ? 'Kit Arrastre (Cadena)' : vehiculo.distribucion || 'correa'}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </article>
 
@@ -198,6 +307,7 @@ function PaginaDetalleVehiculo() {
           </div>
         </div>
 
+        {/* COLUMNA DERECHA: Carga de Services e Historial */}
         <div className="col-12 col-lg-7">
           <div className="card p-4 shadow-sm border-0 bg-white mb-4">
             <h4 className="h5 mb-3 text-dark fw-bold">
@@ -242,8 +352,9 @@ function PaginaDetalleVehiculo() {
           </div>
 
           <div className="card p-4 shadow-sm border-0 bg-white">
+            {/* 🛠️ CAMBIO DE TEXTO: De "Historial Clínico" a "Historial de Services" */}
             <h4 className="h5 mb-3 text-dark fw-bold d-flex justify-content-between align-items-center">
-              <span><i className="bi bi-journal-text text-warning me-2"></i>Historial Clínico</span>
+              <span><i className="bi bi-journal-text text-warning me-2"></i>Historial de Services</span>
               <span className="badge bg-secondary-subtle text-secondary fs-6">{vehiculo.historial.length} ítems</span>
             </h4>
 
