@@ -17,9 +17,10 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
       nombre: '',
       modelo: '',
       tipo: 'auto',
-      distribucion: 'correa', // Valor por defecto
+      distribucion: 'correa',
       patente: '',
       anio: '',
+      kmInicial: '', // Nuevo campo en el estado inicial
       formato2016: 'vieja',
       foto: ''
     }
@@ -58,12 +59,31 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
       return
     }
 
-    // Si es moto, forzamos que se guarde con el arrastre de cadena por defecto
     if (datos.tipo === 'moto') {
       datos.distribucion = 'cadena_moto'
     }
 
-    onAgregarVehiculo(datos)
+    // 🛠️ CREACIÓN DEL REGISTRO INICIAL:
+    // Estructuramos el vehículo para que nazca con su kilometraje actual en el historial
+    const nuevoVehiculo = {
+      nombre: datos.nombre,
+      modelo: datos.modelo,
+      tipo: datos.tipo,
+      distribucion: datos.distribucion,
+      patente: datos.patente,
+      anio: datos.anio,
+      foto: datos.foto,
+      historial: [
+        {
+          id: Date.now().toString(),
+          tipo: "Kilometraje Inicial Registrado",
+          fecha: new Date().toISOString().split('T')[0], // Fecha de hoy en formato AAAA-MM-DD
+          km: Number(datos.kmInicial)
+        }
+      ]
+    }
+
+    onAgregarVehiculo(nuevoVehiculo)
 
     Swal.fire({
       icon: 'success',
@@ -135,7 +155,21 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
           </div>
         </div>
 
-        {/* 🧠 SELECTOR DINÁMICO DE DISTRIBUCIÓN: Solo aparece si NO es una moto */}
+        {/* 🚗 NUEVO CAMPO: Kilometraje Inicial */}
+        <div className="mb-3">
+          <label className="form-label fw-bold small text-secondary">Kilometraje Actual (km)</label>
+          <input
+            type="number"
+            className={`form-control ${errors.kmInicial ? 'is-invalid' : ''}`}
+            placeholder="Ej: 85000"
+            {...register('kmInicial', { 
+              required: 'El kilometraje actual es obligatorio para el diagnóstico',
+              min: { value: 0, message: 'El kilometraje no puede ser negativo' }
+            })}
+          />
+          {errors.kmInicial && <div className="invalid-feedback">{errors.kmInicial.message}</div>}
+        </div>
+
         {!esMoto && (
           <div className="mb-3 bg-light p-3 rounded border border-secondary-subtle">
             <label className="form-label fw-bold small text-dark">

@@ -31,6 +31,12 @@ function PaginaDetalleVehiculo() {
   if (!vehiculo) return <div className="text-center py-5">Cargando ficha técnica...</div>
 
   const alertasActivas = calcularAlertasVehiculo(vehiculo.historial, vehiculo)
+  
+  // 📈 OBTENER KM ACTUAL DESDE EL HISTORIAL:
+  // Busca el número más alto registrado para mostrarlo en la tarjeta técnica
+  const kmActualTotal = vehiculo.historial.length > 0 
+    ? Math.max(...vehiculo.historial.map(h => Number(h.km)))
+    : 0
 
   function manejarAgregarMantenimiento(e) {
     e.preventDefault()
@@ -39,6 +45,16 @@ function PaginaDetalleVehiculo() {
         icon: 'warning',
         title: 'Campos incompletos',
         text: 'Por favor, complete todos los campos antes de registrar la orden.',
+        confirmButtonColor: '#212529'
+      })
+      return
+    }
+
+    if (Number(kmMtto) < kmActualTotal) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Kilometraje inconsistente',
+        text: `El kilometraje no puede ser menor al actual registrado (${kmActualTotal.toLocaleString()} km).`,
         confirmButtonColor: '#212529'
       })
       return
@@ -150,6 +166,9 @@ function PaginaDetalleVehiculo() {
               
               <div className="d-flex flex-column gap-2 small font-monospace">
                 <div className="p-2 bg-light rounded border text-uppercase">
+                  <strong>Kilometraje:</strong> {kmActualTotal.toLocaleString()} km
+                </div>
+                <div className="p-2 bg-light rounded border text-uppercase">
                   <strong>Tipo:</strong> {vehiculo.tipo}
                 </div>
                 <div className="p-2 bg-light rounded border text-uppercase">
@@ -210,7 +229,7 @@ function PaginaDetalleVehiculo() {
                   <input 
                     type="number" 
                     className="form-control form-control-sm" 
-                    placeholder="Ej: 55000"
+                    placeholder={`Mínimo: ${kmActualTotal}`}
                     value={kmMtto}
                     onChange={(e) => setKmMtto(e.target.value)}
                   />
