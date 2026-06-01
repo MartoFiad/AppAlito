@@ -59,18 +59,27 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
       return
     }
 
-    // 🛠️ PARCHE: Guardamos kmInicial en la RAÍZ del objeto y dejamos el historial vacío
-    // Así tu base de datos no borra el dato al guardar.
+    if (datos.tipo === 'moto') {
+      datos.distribucion = 'cadena_moto'
+    }
+
+    // 🛠️ ACÁ ESTÁ EL ARREGLO: El auto ya nace con los kilómetros reales en su historial
     const nuevoVehiculo = {
       nombre: datos.nombre,
       modelo: datos.modelo,
       tipo: datos.tipo,
-      distribucion: datos.tipo === 'moto' ? 'cadena_moto' : datos.distribucion,
-      patente: datos.patente.toUpperCase().replace(/\s+/g, ''),
+      distribucion: datos.distribucion,
+      patente: datos.patente,
       anio: datos.anio,
       foto: datos.foto,
-      kmInicial: Number(datos.kmInicial), // <--- DATO GUARDADO AQUÍ
-      historial: [] // Iniciamos vacío para que el detalle lo calcule correctamente
+      historial: [
+        {
+          id: `${Date.now()}-init`, 
+          tipo: "Kilometraje Inicial Registrado",
+          fecha: new Date().toISOString().split('T')[0], 
+          km: Number(datos.kmInicial) 
+        }
+      ]
     }
 
     onAgregarVehiculo(nuevoVehiculo)
@@ -145,6 +154,7 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
           </div>
         </div>
 
+        {/* Campo Kilometraje */}
         <div className="mb-3">
           <label className="form-label fw-bold small text-secondary">Kilometraje Actual (km)</label>
           <input
@@ -152,7 +162,7 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
             className={`form-control ${errors.kmInicial ? 'is-invalid' : ''}`}
             placeholder="Ej: 85000"
             {...register('kmInicial', { 
-              required: 'El kilometraje actual es obligatorio',
+              required: 'El kilometraje actual es obligatorio para el diagnóstico',
               min: { value: 0, message: 'El kilometraje no puede ser negativo' }
             })}
           />
@@ -165,8 +175,8 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
               <i className="bi bi-gear-wide-connected me-1 text-warning"></i> Mecánica de Distribución
             </label>
             <select className="form-select form-select-sm" {...register('distribucion')}>
-              <option value="correa">Motor con Correa de Distribución</option>
-              <option value="cadena">Motor Cadenero</option>
+              <option value="correa">Motor con Correa de Distribución (Cambio cada 60.000 km)</option>
+              <option value="cadena">Motor Cadenero (Revisión a los 150.000 km)</option>
             </select>
           </div>
         )}
@@ -176,15 +186,16 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
             <label className="form-label fw-bold small text-warning-emphasis">
               <i className="bi bi-info-circle-fill me-1"></i> Transición Patentamiento 2016
             </label>
+            <p className="text-muted small mb-2">En 2016 convivieron los dos diseños en Argentina. Especifique cuál posee:</p>
             <select className="form-select form-select-sm" {...register('formato2016')}>
               <option value="vieja">Formato Viejo (Letras + Números)</option>
-              <option value="nueva">Formato Nuevo Mercosur</option>
+              <option value="nueva">Formato Nuevo Mercosur (Letras + Números + Letras)</option>
             </select>
           </div>
         )}
 
         <div className="mb-3">
-          <label className="form-label fw-bold small text-secondary">Patente</label>
+          <label className="form-label fw-bold small text-secondary">Patente (Identificación Comercial)</label>
           <input
             type="text"
             className={`form-control font-monospace fw-bold text-uppercase ${errors.patente ? 'is-invalid' : ''}`}
@@ -194,17 +205,25 @@ function PaginaNuevoVehiculo({ onAgregarVehiculo }) {
               setValueAs: v => v.toUpperCase().replace(/\s+/g, '')
             })}
           />
-          <div className="form-text text-muted small mt-1 font-monospace">{textoAyudaPatente}</div>
+          <div className="form-text text-muted small mt-1 font-monospace">
+            <i className="bi bi-patch-question me-1"></i>
+            {textoAyudaPatente}
+          </div>
           {errors.patente && <div className="invalid-feedback">{errors.patente.message}</div>}
         </div>
 
         <div className="mb-4">
           <label className="form-label fw-bold small text-secondary">Foto del Vehículo (Opcional)</label>
-          <input type="file" accept="image/*" className="form-control" onChange={manejarCambioFoto} />
+          <input
+            type="file"
+            accept="image/*"
+            className="form-control"
+            onChange={manejarCambioFoto}
+          />
         </div>
 
         <button type="submit" className="btn btn-warning fw-bold w-100 py-2" style={{ borderRadius: '8px' }}>
-          Registrar en el Garage
+          <i className="bi bi-plus-circle me-2"></i> Registrar en el Garage
         </button>
       </form>
     </section>

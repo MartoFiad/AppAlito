@@ -44,10 +44,11 @@ function PaginaDetalleVehiculo() {
   if (!vehiculo) return <div className="text-center py-5">Cargando ficha técnica...</div>
 
   const alertasActivas = calcularAlertasVehiculo(vehiculo.historial, vehiculo)
-  const kmActualTotal = (vehiculo.historial && vehiculo.historial.length > 0) 
-  ? Math.max(...vehiculo.historial.map(h => Number(h.km)))
-  : Number(vehiculo.kmInicial || 0);
   
+  const kmActualTotal = vehiculo.historial.length > 0 
+    ? Math.max(...vehiculo.historial.map(h => Number(h.km)))
+    : 0
+
   // 📝 1. SOLUCIÓN CORREGIDA PARA GUARDAR VEHÍCULO (Parseo de ID)
   function manejarGuardarEdicionVehiculo(e) {
     e.preventDefault()
