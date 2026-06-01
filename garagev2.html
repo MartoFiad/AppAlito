@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <title>Mi Garage</title>
+
+  <style>
+    body { background-color: #f5f5f5; }
+    .card img { height: 200px; object-fit: cover; }
+  </style>
+</head>
+<body>
+
+<div class="container mt-5">
+
+  <h1 class="text-center">Garage Chicha Gay</h1>
+
+  <!-- FORM VEHICULO -->
+  <div class="card p-3 mb-4">
+    <h4>Agregar Vehículo</h4>
+
+    <input id="nombre" class="form-control mb-2" placeholder="Nombre">
+    <input id="modelo" class="form-control mb-2" placeholder="Modelo">
+
+    <select id="tipoVehiculo" class="form-control mb-2">
+      <option value="auto">Auto</option>
+      <option value="camioneta">Camioneta</option>
+      <option value="moto">Moto</option>
+    </select>
+
+    <input id="patente" class="form-control mb-1" placeholder="Patente">
+    <small id="hintPatente" class="text-muted"></small>
+
+    <input id="anio" type="number" class="form-control mb-2" placeholder="Año">
+
+    <!-- SOLO PARA 2016 -->
+    <select id="formato2016" class="form-control mb-2 d-none">
+      <option value="vieja">Formato viejo</option>
+      <option value="nueva">Formato nuevo</option>
+    </select>
+
+    <input id="foto" type="file" class="form-control mb-2">
+
+    <button class="btn btn-primary" onclick="agregarVehiculo()">Agregar</button>
+  </div>
+
+  <!-- LISTA -->
+  <div class="row" id="listaVehiculos"></div>
+
+  <!-- DETALLE -->
+  <div id="detalle" class="d-none mt-5"></div>
+
+</div>
+
+<script>
+
+// 🔥 CARGAR
+let vehiculos = JSON.parse(localStorage.getItem("vehiculos")) || [];
+let vehiculoActual = null;
+
+// 🔥 GUARDAR
+function guardar() {
+  localStorage.setItem("vehiculos", JSON.stringify(vehiculos));
+}
+
+// ---------------- VALIDACION ----------------
+
+function esViejaPorAnio(anio, formato) {
+  if (anio < 2016) return true;
+  if (anio > 2016) return false;
+  return formato === "vieja";
+}
+
+function validarAutoCamioneta(patente, esVieja) {
+  const vieja = /^[A-Z]{3}\d{3}$/;
+  const nueva = /^[A-Z]{2}\d{3}[A-Z]{2}$/;
+  return esVieja ? vieja.test(patente) : nueva.test(patente);
+}
+
+function validarMoto(patente, esVieja) {
+  const vieja = /^\d{3}[A-Z]{3}$/;
+  const nueva = /^[A-Z]\d{3}[A-Z]{3}$/;
+  return esVieja ? vieja.test(patente) : nueva.test(patente);
+}
+
+function validarPatente(tipo, patente, anio) {
+  if (!anio) return false;
+
+  let formato = document.getElementById("formato2016").value;
+  let esVieja = esViejaPorAnio(anio, formato);
+
+  if (tipo === "auto" || tipo === "camioneta") {
+    return validarAutoCamioneta(patente, esVieja);
+  } else if (tipo === "moto") {
+    return validarMoto(patente, esVieja);
+  }
+
+  return false;
+}
+
+// ---------------- HINT PATENTE ----------------
+
+function actualizarHint() {
+  const tipo = document.getElementById("tipoVehiculo").value;
+  const anio = parseInt(document.getElementById("anio").value);
+  const formato = document.getElementById("formato2016").value;
+  const hint = document.getElementById("hintPatente");
+
+  let esVieja;
+
+  if (anio === 2016) {
+    esVieja = formato === "vieja";
+  } else {
+    esVieja = anio < 2016;
+  }
+
+  if (tipo === "auto" || tipo === "camioneta") {
+    hint.innerText = esVieja
+      ? "Formato: ABC123"
+      : "Formato: AB123CD";
+  } else {
+    hint.innerText = esVieja
+      ? "Formato: 123ABC"
+      : "Formato: A123ABC";
+  }
+}
+
+// eventos
+document.getElementById("tipoVehiculo").addEventListener("change", actualizarHint);
+document.getElementById("anio").addEventListener("input", function() {
+  const anio = parseInt(this.value);
+  const select = document.getElementById("formato2016");
+
+  if (anio === 2016) {
+    select.classList.remove("d-none");
+  } else {
+    select.classList.add("d-none");
+  }
+
+  actualizarHint();
+});
+document.getElementById("formato2016").addEventListener("change", actualizarHint);
+
+// ---------------- AGREGAR VEHICULO ----------------
+
+function agregarVehiculo() {
+  const nombre = document.getElementById("nombre").value;
+  const modelo = document.getElementById("modelo").value;
+  const tipo = document.getElementById("tipoVehiculo").value;
+  const patente = document.getElementById("patente").value.toUpperCase();
+  const anio = parseInt(document.getElementById("anio").value);
+  const fotoInput = document.getElementById("foto");
+
+  if (!nombre || !modelo || !anio || !patente) {
+    alert("Completar campos");
+    return;
+  }
+
+  if (!validarPatente(tipo, patente, anio)) {
+    alert("Patente inválida según tipo y año");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    vehiculos.push({
+      nombre,
+      modelo,
+      tipo,
+      patente,
+      anio,
+      foto: e.target.result,
+      historial: []
+    });
+
+    guardar();
+    mostrarVehiculos();
+  };
+
+  if (fotoInput.files[0]) {
+    reader.readAsDataURL(fotoInput.files[0]);
+  } else {
+    vehiculos.push({ nombre, modelo, tipo, patente, anio, foto: "", historial: [] });
+    guardar();
+    mostrarVehiculos();
+  }
+}
+
+// ---------------- MOSTRAR VEHICULOS ----------------
+
+function mostrarVehiculos() {
+  const cont = document.getElementById("listaVehiculos");
+  cont.innerHTML = "";
+
+  vehiculos.forEach((v, i) => {
+    cont.innerHTML += `
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div onclick="verDetalle(${i})" style="cursor:pointer;">
+            ${v.foto ? `<img src="${v.foto}">` : ""}
+            <div class="card-body">
+              <h5>${v.nombre}</h5>
+              <p>${v.modelo} - ${v.anio}</p>
+              <p>${v.tipo} - ${v.patente}</p>
+            </div>
+          </div>
+          <button class="btn btn-danger m-2" onclick="eliminarVehiculo(${i})">Eliminar</button>
+        </div>
+      </div>
+    `;
+  });
+}
+
+// ---------------- ELIMINAR VEHICULO ----------------
+
+function eliminarVehiculo(i) {
+  if (!confirm("¿Eliminar vehículo?")) return;
+
+  vehiculos.splice(i, 1);
+  guardar();
+  mostrarVehiculos();
+
+  document.getElementById("detalle").classList.add("d-none");
+}
+
+// ---------------- DETALLE ----------------
+
+function verDetalle(index) {
+  vehiculoActual = index;
+  const v = vehiculos[index];
+
+  document.getElementById("detalle").classList.remove("d-none");
+
+  // 🔥 ordenar por km
+  v.historial.sort((a, b) => a.km - b.km);
+
+  let html = `
+    <div class="card p-3">
+      <h3>${v.nombre}</h3>
+      <p>${v.modelo} - ${v.anio}</p>
+      <p>${v.tipo} - ${v.patente}</p>
+
+      <h5 class="mt-3">Agregar mantenimiento</h5>
+      <input id="tipo" class="form-control mb-2" placeholder="Tipo (ej: aceite)">
+      <input id="fecha" type="date" class="form-control mb-2">
+      <input id="km" type="number" class="form-control mb-2" placeholder="Kilometraje">
+      <button class="btn btn-success mb-3" onclick="agregarMantenimiento()">Agregar</button>
+
+      <h5>Historial</h5>
+  `;
+
+  if (v.historial.length === 0) {
+    html += `<p>No hay registros todavía</p>`;
+  }
+
+  v.historial.forEach((h, i) => {
+    html += `
+      <div class="border p-2 mb-2">
+        ${h.tipo} - ${h.fecha} - ${h.km} km
+        <br>
+        <button class="btn btn-sm btn-danger" onclick="eliminarHistorial(${i})">Eliminar</button>
+        <button class="btn btn-sm btn-warning" onclick="editarHistorial(${i})">Editar</button>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  document.getElementById("detalle").innerHTML = html;
+  document.getElementById("detalle").scrollIntoView({ behavior: "smooth" });
+}
+
+// ---------------- HISTORIAL ----------------
+
+function agregarMantenimiento() {
+  const tipo = document.getElementById("tipo").value;
+  const fecha = document.getElementById("fecha").value;
+  const km = document.getElementById("km").value;
+
+  if (!tipo || !fecha || !km) {
+    alert("Completar datos");
+    return;
+  }
+
+  vehiculos[vehiculoActual].historial.push({ tipo, fecha, km });
+
+  guardar();
+  verDetalle(vehiculoActual);
+}
+
+function eliminarHistorial(i) {
+  vehiculos[vehiculoActual].historial.splice(i, 1);
+  guardar();
+  verDetalle(vehiculoActual);
+}
+
+function editarHistorial(i) {
+  const nuevoTipo = prompt("Nuevo tipo:");
+  if (!nuevoTipo) return;
+
+  vehiculos[vehiculoActual].historial[i].tipo = nuevoTipo;
+
+  guardar();
+  verDetalle(vehiculoActual);
+}
+
+// 🔥 AUTO MAYUSCULA
+document.getElementById("patente").addEventListener("input", function() {
+  this.value = this.value.toUpperCase();
+});
+
+// INIT
+mostrarVehiculos();
+
+</script>
+
+</body>
+</html>
